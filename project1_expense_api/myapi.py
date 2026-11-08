@@ -58,3 +58,11 @@ def update_user(user_id:int,user:UpdateUser):
         current_user[key] = value
     
     return current_user
+
+@app.delete("/users/{user_id}")
+def delete_user(user_id:int):
+    if user_id not in users:
+            raise HTTPException(status_code = 404, detail = "User not found")
+    
+    deleted_user = users.pop(user_id)
+    return {"message":"user deleted","deleted user" : deleted_user}
