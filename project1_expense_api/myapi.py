@@ -11,7 +11,7 @@ app = FastAPI()
 
 #database setup
 engine = create_engine("sqlite:///users.db", connect_args ={"check_same_thread":False})
-SessionLocal = sessionmaker(autcommit=False,autoflush = False, bind = engine)
+SessionLocal = sessionmaker(autocommit=False,autoflush = False, bind = engine)
 Base = declarative_base()
 
 
@@ -20,9 +20,9 @@ class User(Base):
     
     
     id = Column(Integer, primary_key = True)
-    name = Column(String(100), nullable = False)
-    email = Column(String(100), nullable=False,unique = True)
-    role = Column(String(100), nullable = False)
+    name = Column(String, nullable = False)
+    email = Column(String, nullable=False,unique = True)
+    role = Column(String, nullable = False)
 
 Base.metadata.create_all(engine)
 
@@ -42,11 +42,33 @@ class UserResponse(BaseModel):
         from_attributes = True
 
 
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
-
+get_db()
 
 @app.get('/')
 def root():
     return{"message": "test"}
 
+@app.get('/users/{user_id}', response_model=UserResponse)
+def get_user(user_id:int,db:Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code = 404,detail = 'not found')
+    return user
 
+@app.post('/users/',response_model = UserResponse)
+def create_user(user: UserCreate,db:Session = Depends(get_db)):
+    if db.query(User).filter(User.email == user.email).first():
+        raise HTTPException(status_code = 404,detail = 'already')
+    
+    new_user = User(**user.dict())
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return new_user
