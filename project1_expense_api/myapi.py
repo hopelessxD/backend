@@ -1,79 +1,38 @@
-from fastapi import FastAPI, HTTPException, status, Path
-from typing import Optional
+from fastapi import FastAPI, HTTPException, Depends
+from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker,Session
+
 from pydantic import BaseModel
+from typing import Optional,List
 
 app = FastAPI()
 
-users = {
-    1:{
-        "name": "ram",
-        "age" : 28
-    }
-}
 
-#base pydantic models
-class User(BaseModel):
-    name:str
-    website:str
-    age:int
-    role:str
+#database setup
+engine = create_engine("sqlite:///users.db", connect_args ={"check_same_thread":False})
+SessionLocal = sessionmaker(autcommit=False,autoflush = False, bind = engine)
+Base = declarative_base()
 
-class UpdateUser(BaseModel):
-    name: Optional[str] = None
-    website: Optional[str] = None
-    age: Optional[int] = None
-    role: Optional[str] = None
+
+class User(Base):
+    __tablename__ = "users"
     
     
+    id = Column(Integer, primary_key = True)
+    name = Column(String(100), nullable = False)
+    email = Column(String(100), nullable=False,unique = True)
+    role = Column(String(100), nullable = False)
+
+
+
+
+
+
+
+
 @app.get('/')
 def root():
-    return {"message":"hello"}
+    return{"message": "test"}
 
 
-@app.get('/users/{user_id}')
-def get_user(user_id:int = Path(..., description="The ID you want to get", gt=0)):
-    if user_id not in users:
-        raise HTTPException(status_code = 404, detail = "User not found")
-    return users[user_id]
-
-@app.post("/users/{user_id}", status_code = status.HTTP_201_CREATED)
-def create_user(user_id:int,user:User):
-    if user_id in users:
-        raise HTTPException(status_code = 404, detail = "User already exists")
-    
-    users[user_id] = user.dict()
-    return user
-
-
-@app.put("/users/{user_id}")
-def update_user(user_id:int,user:UpdateUser):
-    if user_id not in users:
-        raise HTTPException(status_code = 404, detail = "User not found")
-    
-    current_user = users[user_id]
-    
-    update_data = user.model_dump(exclude_unset = True)
-    
-    for key,value in update_data.items():
-        current_user[key] = value
-    
-    return current_user
-
-@app.delete("/users/{user_id}")
-def delete_user(user_id:int):
-    if user_id not in users:
-            raise HTTPException(status_code = 404, detail = "User not found")
-    
-    deleted_user = users.pop(user_id)
-    return {"message":"user deleted","deleted user" : deleted_user}
-
-@app.get("/users/search")
-def search_user(name: Optional[str] = None):
-    if not name:
-        return {"message": "Name parameter required"}
-    
-    for user in users.values():
-        if user["name"] == name:
-            return user
-    
-    raise HTTPException(status_code = 404, detail = "User not found")
